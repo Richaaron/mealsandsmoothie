@@ -386,80 +386,83 @@ const App = () => {
         <div className="aura-blob aura-blob-2" />
       </div>
 
-      {/* Global Pulse Feed */}
-      <div className="pulse-ticker bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-b border-black/20">
-        <motion.div 
-          animate={{ x: [0, -1000] }}
-          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-          className="inline-block"
-        >
-          {[...pulseMessages, ...pulseMessages].map((msg, i) => (
-            <span key={i} className="mx-16 text-[9px] font-black uppercase tracking-[0.4em]">
-              ⚡ {msg}
-            </span>
-          ))}
-        </motion.div>
-      </div>
-
-      {/* Floating Navbar */}
-      <nav className="fixed top-12 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-[1500] glass rounded-full px-8 py-4 flex items-center justify-between border-white/5 shadow-2xl">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
-            <ChefHat className="text-black" size={20} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-2xl font-black tracking-tighter serif leading-none">CULINA<span className="text-amber-500">WORLD</span></span>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mt-1">Level {Math.floor(userXP / 100) + 1} Elite Chef</span>
-          </div>
+      {/* Unified Luxury Header */}
+      <header className="fixed top-0 left-0 right-0 z-[2000] flex flex-col">
+        {/* Global Pulse Feed */}
+        <div className="bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-b border-black/20">
+          <motion.div 
+            animate={{ x: [0, -1000] }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+            className="inline-block"
+          >
+            {[...pulseMessages, ...pulseMessages].map((msg, i) => (
+              <span key={i} className="mx-16 text-[9px] font-black uppercase tracking-[0.4em]">
+                ⚡ {msg}
+              </span>
+            ))}
+          </motion.div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-10 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
-          <button 
-            onClick={() => { setActiveTab('Explorer'); setShowMealPlanner(false); }}
-            className={`transition-all hover:scale-110 ${activeTab === 'Explorer' ? 'text-amber-500' : 'hover:text-white'}`}
-          >
-            Explorer
-          </button>
-          <button 
-            onClick={() => { setActiveTab('MealPlanner'); setShowMealPlanner(true); }}
-            className={`transition-all hover:scale-110 ${activeTab === 'MealPlanner' ? 'text-amber-500' : 'hover:text-white'}`}
-          >
-            Meal Planner
-          </button>
-          <button 
-            onClick={() => { setActiveTab('Map'); }}
-            className={`transition-all hover:scale-110 ${activeTab === 'Map' ? 'text-amber-500' : 'hover:text-white'}`}
-          >
-            Culinary Map
-          </button>
-          <div className="h-4 w-[1px] bg-white/10 mx-2" />
-          <button 
-            onClick={() => setShowShoppingList(true)}
-            className="hover:text-white transition-all flex items-center gap-2 group"
-          >
-            List <div className="w-6 h-6 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] font-black group-hover:scale-125 transition-transform">{shoppingList.length}</div>
-          </button>
-          <button className="hover:text-white transition-all flex items-center gap-2 group">
-            Favs <div className="w-6 h-6 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] font-black group-hover:scale-125 transition-transform">{favorites.length}</div>
-          </button>
-          
-          {user ? (
-            <div className="flex items-center gap-4 pl-6 border-l border-white/10">
-              <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-black font-black text-xs shadow-lg">
-                {user.email.charAt(0).toUpperCase()}
-              </div>
-              <button onClick={handleSignOut} className="hover:text-red-500 transition-colors">Logout</button>
+        {/* Navigation Bar */}
+        <div className="w-full bg-black/80 backdrop-blur-xl border-b border-white/5 px-12 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center shadow-2xl">
+              <ChefHat className="text-black" size={24} />
             </div>
-          ) : (
+            <div className="flex flex-col">
+              <span className="text-3xl font-black tracking-tighter serif leading-none">CULINA<span className="text-amber-500">WORLD</span></span>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500 mt-1">Level {Math.floor(userXP / 100) + 1} Elite Chef</span>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-12 text-[12px] font-black uppercase tracking-[0.2em] text-slate-400">
             <button 
-              onClick={() => setShowAuthModal(true)}
-              className="px-8 py-3 rounded-full bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-lg"
+              onClick={() => { setActiveTab('Explorer'); setShowMealPlanner(false); }}
+              className={`transition-all hover:scale-110 ${activeTab === 'Explorer' ? 'text-amber-500' : 'hover:text-white'}`}
             >
-              Access Portal
+              Explorer
             </button>
-          )}
+            <button 
+              onClick={() => { setActiveTab('MealPlanner'); setShowMealPlanner(true); }}
+              className={`transition-all hover:scale-110 ${activeTab === 'MealPlanner' ? 'text-amber-500' : 'hover:text-white'}`}
+            >
+              Meal Planner
+            </button>
+            <button 
+              onClick={() => { setActiveTab('Map'); }}
+              className={`transition-all hover:scale-110 ${activeTab === 'Map' ? 'text-amber-500' : 'hover:text-white'}`}
+            >
+              Culinary Map
+            </button>
+            <div className="h-6 w-[1px] bg-white/10" />
+            <button 
+              onClick={() => setShowShoppingList(true)}
+              className="hover:text-white transition-all flex items-center gap-3 group"
+            >
+              List <div className="w-7 h-7 bg-amber-500 text-black rounded-full flex items-center justify-center text-[11px] font-black group-hover:scale-125 transition-transform">{shoppingList.length}</div>
+            </button>
+            <button className="hover:text-white transition-all flex items-center gap-3 group">
+              Favs <div className="w-7 h-7 bg-amber-500 text-black rounded-full flex items-center justify-center text-[11px] font-black group-hover:scale-125 transition-transform">{favorites.length}</div>
+            </button>
+            
+            {user ? (
+              <div className="flex items-center gap-6 pl-8 border-l border-white/10">
+                <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center text-black font-black text-sm shadow-2xl">
+                  {user.email.charAt(0).toUpperCase()}
+                </div>
+                <button onClick={handleSignOut} className="hover:text-red-500 transition-colors">Logout</button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="px-10 py-4 rounded-2xl bg-amber-500 text-black text-[11px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-2xl"
+              >
+                Access Portal
+              </button>
+            )}
+          </div>
         </div>
-      </nav>
+      </header>
 
       {/* Hero Section - Editorial Style */}
       <section className="pt-80 pb-40 container relative z-10">
