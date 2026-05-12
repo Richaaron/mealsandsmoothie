@@ -387,14 +387,14 @@ const App = () => {
       </div>
 
       {/* Global Pulse Feed */}
-      <div className="pulse-ticker bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-b border-black/10">
+      <div className="pulse-ticker bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-b border-black/20">
         <motion.div 
           animate={{ x: [0, -1000] }}
           transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
           className="inline-block"
         >
           {[...pulseMessages, ...pulseMessages].map((msg, i) => (
-            <span key={i} className="mx-16 text-[9px] font-black uppercase tracking-[0.3em]">
+            <span key={i} className="mx-16 text-[9px] font-black uppercase tracking-[0.4em]">
               ⚡ {msg}
             </span>
           ))}
@@ -402,65 +402,68 @@ const App = () => {
       </div>
 
       {/* Floating Navbar */}
-      <nav className="nav-floating glass px-12 py-5 hidden md:flex items-center justify-between border-amber-500/20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-            <ChefHat className="text-black" size={18} />
+      <nav className="fixed top-12 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-[1500] glass rounded-full px-8 py-4 flex items-center justify-between border-white/5 shadow-2xl">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+            <ChefHat className="text-black" size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tighter serif leading-none">CULINA<span className="text-amber-500">WORLD</span></span>
-            <span className="text-[8px] font-black uppercase tracking-widest text-amber-500/50 mt-1">Level {Math.floor(userXP / 100) + 1} Chef</span>
+            <span className="text-2xl font-black tracking-tighter serif leading-none">CULINA<span className="text-amber-500">WORLD</span></span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mt-1">Level {Math.floor(userXP / 100) + 1} Elite Chef</span>
           </div>
         </div>
-        <div className="flex items-center gap-8 text-xs font-bold uppercase tracking-widest text-slate-400">
+
+        <div className="hidden lg:flex items-center gap-10 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
           <button 
             onClick={() => { setActiveTab('Explorer'); setShowMealPlanner(false); }}
-            className={`transition-colors ${activeTab === 'Explorer' ? 'text-amber-500' : 'hover:text-white'}`}
+            className={`transition-all hover:scale-110 ${activeTab === 'Explorer' ? 'text-amber-500' : 'hover:text-white'}`}
           >
             Explorer
           </button>
           <button 
             onClick={() => { setActiveTab('MealPlanner'); setShowMealPlanner(true); }}
-            className={`transition-colors ${activeTab === 'MealPlanner' ? 'text-amber-500' : 'hover:text-white'}`}
+            className={`transition-all hover:scale-110 ${activeTab === 'MealPlanner' ? 'text-amber-500' : 'hover:text-white'}`}
           >
             Meal Planner
           </button>
           <button 
             onClick={() => { setActiveTab('Map'); }}
-            className={`transition-colors ${activeTab === 'Map' ? 'text-amber-500' : 'hover:text-white'}`}
+            className={`transition-all hover:scale-110 ${activeTab === 'Map' ? 'text-amber-500' : 'hover:text-white'}`}
           >
             Culinary Map
           </button>
+          <div className="h-4 w-[1px] bg-white/10 mx-2" />
           <button 
             onClick={() => setShowShoppingList(true)}
-            className="hover:text-white transition-colors flex items-center gap-2"
+            className="hover:text-white transition-all flex items-center gap-2 group"
           >
-            Shopping List <div className="w-5 h-5 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] font-black">{shoppingList.length}</div>
+            List <div className="w-6 h-6 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] font-black group-hover:scale-125 transition-transform">{shoppingList.length}</div>
           </button>
-          <button className="hover:text-white transition-colors flex items-center gap-2">
-            Favorites <div className="w-5 h-5 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] font-black">{favorites.length}</div>
+          <button className="hover:text-white transition-all flex items-center gap-2 group">
+            Favs <div className="w-6 h-6 bg-amber-500 text-black rounded-full flex items-center justify-center text-[10px] font-black group-hover:scale-125 transition-transform">{favorites.length}</div>
           </button>
           
           {user ? (
-            <div className="flex items-center gap-3 pl-4 border-l border-white/10">
-              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-black font-black text-[10px]">
+            <div className="flex items-center gap-4 pl-6 border-l border-white/10">
+              <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-black font-black text-xs shadow-lg">
                 {user.email.charAt(0).toUpperCase()}
               </div>
-              <button onClick={handleSignOut} className="hover:text-red-500 transition-colors">Sign Out</button>
+              <button onClick={handleSignOut} className="hover:text-red-500 transition-colors">Logout</button>
             </div>
           ) : (
             <button 
               onClick={() => setShowAuthModal(true)}
-              className="px-6 py-2 rounded-full border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all"
+              className="px-8 py-3 rounded-full bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-lg"
             >
-              Sign In
+              Access Portal
             </button>
           )}
         </div>
       </nav>
 
       {/* Hero Section - Editorial Style */}
-      <section className="pt-72 pb-32 container">
+      <section className="pt-80 pb-40 container relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
             <motion.div 
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -528,6 +531,7 @@ const App = () => {
               <p className="text-sm font-bold serif">Award Winning Collections 2026</p>
             </div>
           </motion.div>
+        </div>
       </section>
 
       {/* Filters - Luxury Style */}
