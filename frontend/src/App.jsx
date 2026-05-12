@@ -404,7 +404,7 @@ const App = () => {
         </div>
 
         {/* Navigation Bar */}
-        <div className="w-full bg-black/80 backdrop-blur-xl border-b border-white/5 px-12 py-6 flex items-center justify-between">
+        <div className="nav-unit w-full bg-black/80 backdrop-blur-xl border-b border-white/5 px-12 py-6 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center shadow-2xl">
               <ChefHat className="text-black" size={24} />
@@ -465,7 +465,7 @@ const App = () => {
       </header>
 
       {/* Hero Section - Editorial Style */}
-      <section className="pt-80 pb-40 container relative z-10">
+      <section className="hero-section pt-80 pb-40 container relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
             <motion.div 
               initial={{ opacity: 0, x: -50 }}
