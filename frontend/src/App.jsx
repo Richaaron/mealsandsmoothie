@@ -387,14 +387,14 @@ const App = () => {
       </div>
 
       {/* Global Pulse Feed */}
-      <div className="bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-y border-black/10 z-[2000]">
+      <div className="pulse-ticker bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-b border-black/10">
         <motion.div 
           animate={{ x: [0, -1000] }}
-          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
           className="inline-block"
         >
           {[...pulseMessages, ...pulseMessages].map((msg, i) => (
-            <span key={i} className="mx-12 text-[10px] font-black uppercase tracking-[0.2em]">
+            <span key={i} className="mx-16 text-[9px] font-black uppercase tracking-[0.3em]">
               ⚡ {msg}
             </span>
           ))}
@@ -460,7 +460,7 @@ const App = () => {
       </nav>
 
       {/* Hero Section - Editorial Style */}
-      <section className="pt-48 pb-24 container">
+      <section className="pt-72 pb-32 container">
             <motion.div 
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -495,12 +495,12 @@ const App = () => {
                   <Zap size={20} />
                   Surprise Me
                 </button>
-                <div className="flex glass rounded-2xl p-1 gap-1">
+                <div className="flex glass rounded-2xl p-1 gap-1 border-white/5">
                   {['EN', 'ES', 'FR'].map(lang => (
                     <button 
                       key={lang}
                       onClick={() => setActiveLanguage(lang)}
-                      className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${activeLanguage === lang ? 'bg-amber-500 text-black' : 'text-slate-500 hover:text-white'}`}
+                      className={`w-12 h-12 rounded-xl text-[10px] font-black transition-all ${activeLanguage === lang ? 'bg-amber-500 text-black' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
                       {lang}
                     </button>
