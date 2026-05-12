@@ -18,7 +18,21 @@ async function migrate() {
   // Split into chunks of 100 to avoid request size limits
   const chunkSize = 100
   for (let i = 0; i < recipes.length; i += chunkSize) {
-    const chunk = recipes.slice(i, i + chunkSize)
+    const chunk = recipes.slice(i, i + chunkSize).map(r => ({
+      id: r.id,
+      title: r.title,
+      category: r.category,
+      origin: r.origin,
+      continent: r.continent,
+      description: r.description,
+      prep_time: r.prepTime,
+      cook_time: r.cookTime,
+      difficulty: r.difficulty,
+      ingredients: r.ingredients,
+      method: r.method,
+      image: r.image
+    }))
+    
     const { error } = await supabase.from('recipes').upsert(chunk)
     
     if (error) {

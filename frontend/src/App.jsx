@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Clock, ChefHat, Globe, X, ChevronRight, Play, Zap, Heart, Sparkles, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
+import { toPng } from 'html-to-image';
+import confetti from 'canvas-confetti';
+import { Volume2, Scale, Printer, Languages } from 'lucide-react';
 
 const App = () => {
   const [recipes, setRecipes] = useState([]);
@@ -35,6 +38,33 @@ const App = () => {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+
+  const [reviews, setReviews] = useState([]);
+  const [userRating, setUserRating] = useState(5);
+  const [userComment, setUserComment] = useState('');
+  const [sharing, setSharing] = useState(false);
+
+  const [mealPlans, setMealPlans] = useState([]);
+  const [showMealPlanner, setShowMealPlanner] = useState(false);
+  const [activeTab, setActiveTab] = useState('Explorer'); // Explorer, MealPlanner, Map
+
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'bot', text: 'Hello Chef! How can I assist your culinary journey today?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+
+  const [isMetric, setIsMetric] = useState(true);
+  const [activeLanguage, setActiveLanguage] = useState('English');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const [userXP, setUserXP] = useState(() => Number(localStorage.getItem('culina-xp')) || 0);
+  const [pulseMessages, setPulseMessages] = useState([
+    "Chef in Italy just saved 'Japanese Masterpiece'",
+    "Smoothie craze hitting Lagos right now!",
+    "New Recipe Trend: Modern Fusion Desserts",
+    "Someone just reached 'Executive Chef' rank!"
+  ]);
 
   useEffect(() => {
     // Check current session
@@ -85,6 +115,81 @@ const App = () => {
     await supabase.auth.signOut();
     setUser(null);
   };
+
+  const fetchReviews = async (recipeId) => {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*, profiles:user_id(email)')
+      .eq('recipe_id', recipeId)
+      .order('created_at', { ascending: false });
+    
+    if (data) setReviews(data);
+  };
+
+  const submitReview = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    const { error } = await supabase.from('reviews').insert({
+      user_id: user.id,
+      recipe_id: selectedRecipe.id,
+      rating: userRating,
+      comment: userComment
+    });
+
+    if (!error) {
+      fetchReviews(selectedRecipe.id);
+      setUserComment('');
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#d4af37', '#ffffff']
+      });
+    }
+  };
+
+  const shareRecipe = async () => {
+    const node = document.getElementById('recipe-card-content');
+    if (!node) return;
+
+    setSharing(true);
+    try {
+      const dataUrl = await toPng(node, { quality: 0.95, backgroundColor: '#050505' });
+      const link = document.createElement('a');
+      link.download = `CulinaWorld-${selectedRecipe.title}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Error sharing recipe:', err);
+    }
+    setSharing(false);
+  };
+
+  const speak = (text) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleUnits = (ingredient) => {
+    if (isMetric) return ingredient;
+    // Simple conversion logic for demo
+    return ingredient.replace(/(\d+)g/g, (m, g) => `${Math.round(g * 0.035)}oz`)
+                     .replace(/(\d+)ml/g, (m, ml) => `${Math.round(ml * 0.034)}fl oz`);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  useEffect(() => {
+    if (selectedRecipe) fetchReviews(selectedRecipe.id);
+  }, [selectedRecipe]);
 
   const toggleFavorite = async (e, recipeId) => {
     e.stopPropagation();
@@ -151,26 +256,34 @@ const App = () => {
   const fetchRecipes = async (pageNum, reset = false) => {
     setLoading(true);
     try {
-      const query = new URLSearchParams({
-        page: pageNum,
-        limit: 24,
-        category: activeCategory,
-        origin: activeOrigin,
-        continent: activeContinent,
-        search: search
-      }).toString();
+      let query = supabase
+        .from('recipes')
+        .select('*', { count: 'exact' });
 
-      const res = await fetch(`http://localhost:5000/api/recipes?${query}`);
-      const data = await res.json();
+      // Filtering
+      if (activeCategory !== 'All') query = query.eq('category', activeCategory);
+      if (activeOrigin !== 'All') query = query.eq('origin', activeOrigin);
+      if (activeContinent !== 'All') query = query.eq('continent', activeContinent);
+      if (search) query = query.ilike('title', `%${search}%`);
+
+      // Pagination
+      const from = (pageNum - 1) * 24;
+      const to = from + 23;
+      
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
 
       if (reset) {
-        setRecipes(data.recipes);
+        setRecipes(data);
       } else {
-        setRecipes(prev => [...prev, ...data.recipes]);
+        setRecipes(prev => [...prev, ...data]);
       }
 
-      setTotalCount(data.total);
-      setHasMore(data.page < data.totalPages);
+      setTotalCount(count);
+      setHasMore(data.length === 24);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching recipes:', error);
@@ -178,12 +291,16 @@ const App = () => {
     }
   };
 
-  const surpriseMe = () => {
-    const randomId = recipes[Math.floor(Math.random() * recipes.length)]?.id;
-    if (randomId) {
-      fetch(`http://localhost:5000/api/recipes/${randomId}`)
-        .then(res => res.json())
-        .then(data => setSelectedRecipe(data));
+  const surpriseMe = async () => {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id')
+      .limit(100); // Random sample
+    
+    if (data && data.length > 0) {
+      const randomId = data[Math.floor(Math.random() * data.length)].id;
+      const { data: recipe } = await supabase.from('recipes').select('*').eq('id', randomId).single();
+      setSelectedRecipe(recipe);
     }
   };
 
@@ -269,16 +386,51 @@ const App = () => {
         <div className="aura-blob aura-blob-2" />
       </div>
 
+      {/* Global Pulse Feed */}
+      <div className="bg-amber-500 text-black py-2 overflow-hidden whitespace-nowrap border-y border-black/10 z-[2000]">
+        <motion.div 
+          animate={{ x: [0, -1000] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="inline-block"
+        >
+          {[...pulseMessages, ...pulseMessages].map((msg, i) => (
+            <span key={i} className="mx-12 text-[10px] font-black uppercase tracking-[0.2em]">
+              ⚡ {msg}
+            </span>
+          ))}
+        </motion.div>
+      </div>
+
       {/* Floating Navbar */}
       <nav className="nav-floating glass px-12 py-5 hidden md:flex items-center justify-between border-amber-500/20">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
             <ChefHat className="text-black" size={18} />
           </div>
-          <span className="text-xl font-black tracking-tighter serif">CULINA<span className="text-amber-500">WORLD</span></span>
+          <div className="flex flex-col">
+            <span className="text-xl font-black tracking-tighter serif leading-none">CULINA<span className="text-amber-500">WORLD</span></span>
+            <span className="text-[8px] font-black uppercase tracking-widest text-amber-500/50 mt-1">Level {Math.floor(userXP / 100) + 1} Chef</span>
+          </div>
         </div>
         <div className="flex items-center gap-8 text-xs font-bold uppercase tracking-widest text-slate-400">
-          <button className="hover:text-white transition-colors">Explorer</button>
+          <button 
+            onClick={() => { setActiveTab('Explorer'); setShowMealPlanner(false); }}
+            className={`transition-colors ${activeTab === 'Explorer' ? 'text-amber-500' : 'hover:text-white'}`}
+          >
+            Explorer
+          </button>
+          <button 
+            onClick={() => { setActiveTab('MealPlanner'); setShowMealPlanner(true); }}
+            className={`transition-colors ${activeTab === 'MealPlanner' ? 'text-amber-500' : 'hover:text-white'}`}
+          >
+            Meal Planner
+          </button>
+          <button 
+            onClick={() => { setActiveTab('Map'); }}
+            className={`transition-colors ${activeTab === 'Map' ? 'text-amber-500' : 'hover:text-white'}`}
+          >
+            Culinary Map
+          </button>
           <button 
             onClick={() => setShowShoppingList(true)}
             className="hover:text-white transition-colors flex items-center gap-2"
@@ -309,39 +461,52 @@ const App = () => {
 
       {/* Hero Section - Editorial Style */}
       <section className="pt-48 pb-24 container">
-        <div className="hero-editorial">
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <span className="editorial-tag">Global Gastronomy Repository</span>
-            <h1 className="text-7xl md:text-9xl font-black mb-8 leading-[0.9] serif">
-              The Art of <br />
-              <span className="gradient-text italic font-medium">Global Flavor.</span>
-            </h1>
-            <p className="text-slate-400 text-xl mb-12 max-w-lg leading-relaxed">
-              Explore a curated archive of {totalCount.toLocaleString()} intercontinental recipes. From the spiced kitchens of Africa to the modern mixology of the West.
-            </p>
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+              className="z-10"
+            >
+              <span className="editorial-tag">Global Gastronomy Repository</span>
+              <h1 className="text-8xl md:text-[12rem] font-black mb-8 leading-[0.85] serif">
+                Taste the <br />
+                <span className="gradient-text italic font-black">Infinite.</span>
+              </h1>
+              <p className="text-slate-500 text-2xl mb-16 max-w-xl leading-relaxed serif italic">
+                A curated archive of {totalCount.toLocaleString()} intercontinental masterpieces. From the spiced kitchens of Africa to the modern mixology of the West.
+              </p>
 
             <div className="flex flex-col md:flex-row items-center gap-4">
               <div className="relative flex-1 w-full group">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
                 <input 
                   type="text"
-                  placeholder="Search 2,200+ global recipes..."
+                  placeholder={`Search ${totalCount.toLocaleString()} global recipes...`}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 pl-16 pr-8 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 transition-all text-lg backdrop-blur-md"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <button 
-                onClick={surpriseMe}
-                className="btn-luxury rounded-2xl whitespace-nowrap"
-              >
-                <Zap size={20} />
-                Surprise Me
-              </button>
+              <div className="flex gap-4 w-full md:w-auto">
+                <button 
+                  onClick={surpriseMe}
+                  className="btn-luxury rounded-2xl whitespace-nowrap flex-1 md:flex-initial"
+                >
+                  <Zap size={20} />
+                  Surprise Me
+                </button>
+                <div className="flex glass rounded-2xl p-1 gap-1">
+                  {['EN', 'ES', 'FR'].map(lang => (
+                    <button 
+                      key={lang}
+                      onClick={() => setActiveLanguage(lang)}
+                      className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${activeLanguage === lang ? 'bg-amber-500 text-black' : 'text-slate-500 hover:text-white'}`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
 
@@ -420,16 +585,17 @@ const App = () => {
 
         <motion.div 
           layout
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-20"
         >
           <AnimatePresence mode='popLayout'>
             {recipes.map((recipe, idx) => (
               <motion.div
                 key={recipe.id}
                 layout
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx % 3 * 0.1 }}
+                initial={{ opacity: 0, y: 100 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
                 className="luxury-card group cursor-pointer"
                 onClick={() => setSelectedRecipe(recipe)}
               >
@@ -508,6 +674,7 @@ const App = () => {
               initial={{ scale: 0.9, y: 50 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 50 }}
+              id="recipe-card-content"
               className="relative w-full max-w-7xl h-full max-h-[90vh] glass overflow-hidden flex flex-col md:flex-row border-white/10"
             >
               <button 
@@ -545,18 +712,51 @@ const App = () => {
                   <div className="mb-16">
                     <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
                       <h4 className="text-2xl font-black serif">Required Elements</h4>
-                      <button 
-                        onClick={() => addToShoppingList(selectedRecipe.ingredients)}
-                        className="text-[10px] font-black uppercase tracking-widest text-amber-500 hover:text-white transition-colors border border-amber-500/30 px-4 py-2 rounded-full"
-                      >
-                        Add All to List
-                      </button>
+                      <div className="flex gap-4">
+                        <button 
+                          onClick={handlePrint}
+                          className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors border border-white/10 px-4 py-2 rounded-full flex items-center gap-2"
+                        >
+                          <Printer size={14} /> Print
+                        </button>
+                        <button 
+                          onClick={() => setIsMetric(!isMetric)}
+                          className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors border border-white/10 px-4 py-2 rounded-full flex items-center gap-2"
+                        >
+                          <Scale size={14} /> {isMetric ? 'Metric' : 'Imperial'}
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (!user) return setShowAuthModal(true);
+                            // Simple logic to add to Monday Breakfast for demo
+                            supabase.from('meal_plans').insert({ user_id: user.id, recipe_id: selectedRecipe.id, day: 'Monday', meal_type: 'Breakfast' }).then(() => {
+                              alert('Added to your Monday Breakfast!');
+                            });
+                          }}
+                          className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors border border-white/10 px-4 py-2 rounded-full"
+                        >
+                          Add to Planner
+                        </button>
+                        <button 
+                          onClick={shareRecipe}
+                          disabled={sharing}
+                          className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors border border-white/10 px-4 py-2 rounded-full flex items-center gap-2"
+                        >
+                          {sharing ? 'Generating...' : 'Share Postcard'}
+                        </button>
+                        <button 
+                          onClick={() => addToShoppingList(selectedRecipe.ingredients)}
+                          className="text-[10px] font-black uppercase tracking-widest text-amber-500 hover:text-white transition-colors border border-amber-500/30 px-4 py-2 rounded-full"
+                        >
+                          Add All to List
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4">
                       {selectedRecipe.ingredients.map((ing, idx) => (
                         <div key={idx} className="flex items-center gap-4 text-slate-300 group">
                           <div className="w-2 h-2 rounded-full bg-amber-500/50 group-hover:bg-amber-500 transition-colors" />
-                          <span className="text-lg">{ing}</span>
+                          <span className="text-lg">{toggleUnits(ing)}</span>
                         </div>
                       ))}
                     </div>
@@ -575,7 +775,7 @@ const App = () => {
                         Start Cooking Mode
                       </button>
                     </div>
-                    <div className="space-y-10">
+                    <div className="space-y-10 mb-20">
                       {selectedRecipe.method.map((step, idx) => (
                         <div key={idx} className="flex gap-8 group">
                           <span className="flex-shrink-0 text-4xl font-black text-white/10 group-hover:text-amber-500/50 transition-colors serif">
@@ -584,6 +784,60 @@ const App = () => {
                           <p className="text-slate-400 text-lg leading-relaxed pt-2 group-hover:text-slate-200 transition-colors">{step}</p>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Community Reviews Section */}
+                    <div className="border-t border-white/5 pt-16">
+                      <h4 className="text-3xl font-black serif mb-10">Chef's Community</h4>
+                      
+                      {/* Review Form */}
+                      <div className="glass p-8 rounded-3xl mb-12 border-amber-500/10">
+                        <p className="text-[10px] uppercase tracking-widest text-amber-500 font-black mb-6">Leave a Review</p>
+                        <div className="flex gap-2 mb-6">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <button 
+                              key={star} 
+                              onClick={() => setUserRating(star)}
+                              className={`p-1 transition-colors ${userRating >= star ? 'text-amber-500' : 'text-slate-700'}`}
+                            >
+                              <Heart size={20} fill={userRating >= star ? 'currentColor' : 'none'} />
+                            </button>
+                          ))}
+                        </div>
+                        <textarea 
+                          value={userComment}
+                          onChange={(e) => setUserComment(e.target.value)}
+                          placeholder="Share your culinary experience..."
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-slate-300 focus:outline-none focus:border-amber-500/30 transition-all mb-6 min-h-[120px]"
+                        />
+                        <button 
+                          onClick={submitReview}
+                          className="btn-luxury w-full py-4 rounded-2xl"
+                        >
+                          Publish Review
+                        </button>
+                      </div>
+
+                      {/* Review List */}
+                      <div className="space-y-8">
+                        {reviews.length === 0 ? (
+                          <p className="text-slate-500 italic serif">No reviews yet. Be the first to try this masterpiece!</p>
+                        ) : (
+                          reviews.map(review => (
+                            <div key={review.id} className="pb-8 border-b border-white/5 last:border-0">
+                              <div className="flex justify-between items-center mb-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Chef Anonymous</span>
+                                <div className="flex gap-1">
+                                  {[1, 2, 3, 4, 5].map(star => (
+                                    <Heart key={star} size={10} className={review.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-800'} />
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-slate-300 leading-relaxed italic serif">"{review.comment}"</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -655,7 +909,101 @@ const App = () => {
         )}
       </AnimatePresence>
 
-      {/* Cook Mode Overlay */}
+      {/* Meal Planner Overlay */}
+      <AnimatePresence>
+        {showMealPlanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed inset-0 z-[2500] bg-black p-8 md:p-24 overflow-y-auto"
+          >
+            <div className="max-w-7xl mx-auto">
+              <div className="flex justify-between items-center mb-20">
+                <div>
+                  <h2 className="text-6xl font-black serif mb-4">Your Week</h2>
+                  <p className="text-slate-500 uppercase tracking-[0.5em] text-xs">A luxury timeline of global flavors</p>
+                </div>
+                <button onClick={() => setShowMealPlanner(false)} className="glass p-6 rounded-full hover:bg-white/10 transition-all">
+                  <X size={32} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                  <div key={day} className="glass p-6 rounded-[32px] min-h-[400px] border-white/5">
+                    <h3 className="text-lg font-black serif mb-6 border-b border-white/5 pb-4 text-amber-500">{day}</h3>
+                    <div className="space-y-4">
+                      {['Breakfast', 'Lunch', 'Dinner'].map(type => (
+                        <div key={type} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-amber-500/30 transition-all group">
+                          <span className="text-[8px] uppercase tracking-widest text-slate-600 block mb-2">{type}</span>
+                          <p className="text-xs font-bold text-slate-400 italic">No recipe planned</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Chef Assistant */}
+      <div className="fixed bottom-10 right-10 z-[5000]">
+        <AnimatePresence>
+          {showAIChat && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="glass w-[350px] h-[500px] rounded-[32px] mb-6 flex flex-col overflow-hidden border-amber-500/20 shadow-2xl"
+            >
+              <div className="gradient-primary p-6 flex justify-between items-center">
+                <div className="flex items-center gap-3 text-black">
+                  <Zap size={20} />
+                  <span className="font-black text-xs uppercase tracking-widest">Culina AI</span>
+                </div>
+                <button onClick={() => setShowAIChat(false)} className="text-black/50 hover:text-black">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar">
+                {chatMessages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] p-4 rounded-2xl text-xs leading-relaxed ${
+                      msg.role === 'user' ? 'bg-amber-500 text-black font-bold' : 'bg-white/5 text-slate-300 border border-white/5'
+                    }`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 border-t border-white/5">
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && setChatMessages([...chatMessages, { role: 'user', text: chatInput }, { role: 'bot', text: 'That sounds delicious! I recommend checking out our Mediterranean collection.' }])}
+                    placeholder="Ask your chef..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  />
+                  <button className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-500">
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <button 
+          onClick={() => setShowAIChat(!showAIChat)}
+          className="w-16 h-16 gradient-primary rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform text-black"
+        >
+          <Zap size={28} />
+        </button>
+      </div>
       <AnimatePresence>
         {isCookMode && selectedRecipe && (
           <motion.div
@@ -675,14 +1023,22 @@ const App = () => {
 
             <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-24">
               <div className="max-w-4xl w-full">
-                <div className="flex justify-between items-center mb-16">
-                  <span className="text-amber-500 font-black uppercase tracking-[0.5em] text-xs">
-                    Step {(currentStep + 1).toString().padStart(2, '0')} of {selectedRecipe.method.length.toString().padStart(2, '0')}
-                  </span>
-                  <button onClick={() => setIsCookMode(false)} className="glass p-4 rounded-full hover:bg-white/10 transition-all">
-                    <X size={24} />
-                  </button>
-                </div>
+                  <div className="flex justify-between items-center mb-16">
+                    <span className="text-amber-500 font-black uppercase tracking-[0.5em] text-xs">
+                      Step {(currentStep + 1).toString().padStart(2, '0')} of {selectedRecipe.method.length.toString().padStart(2, '0')}
+                    </span>
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={() => speak(selectedRecipe.method[currentStep])}
+                        className={`p-4 glass rounded-full transition-all ${isSpeaking ? 'text-amber-500 animate-pulse border-amber-500' : 'text-slate-400'}`}
+                      >
+                        <Volume2 size={24} />
+                      </button>
+                      <button onClick={() => setIsCookMode(false)} className="glass p-4 rounded-full hover:bg-white/10 transition-all">
+                        <X size={24} />
+                      </button>
+                    </div>
+                  </div>
 
                 <motion.div
                   key={currentStep}
@@ -713,7 +1069,19 @@ const App = () => {
                       </button>
                     ) : (
                       <button 
-                        onClick={() => setIsCookMode(false)}
+                        onClick={() => {
+                          setIsCookMode(false);
+                          const newXP = userXP + 50;
+                          setUserXP(newXP);
+                          localStorage.setItem('culina-xp', newXP);
+                          confetti({
+                            particleCount: 150,
+                            spread: 100,
+                            origin: { y: 0.6 },
+                            colors: ['#d4af37', '#ffffff', '#f59e0b']
+                          });
+                          alert(`+50 XP! You are now ${Math.floor(newXP / 100) + 1} Level Chef!`);
+                        }}
                         className="flex-1 py-8 gradient-primary text-black font-black uppercase tracking-[0.5em] text-xl hover:scale-[1.02] transition-all rounded-3xl"
                       >
                         Finish Cooking
@@ -797,10 +1165,92 @@ const App = () => {
         )}
       </AnimatePresence>
 
+      {/* Culinary Map / Analytics Overlay */}
+      <AnimatePresence>
+        {activeTab === 'Map' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[2600] bg-black p-8 md:p-24 overflow-y-auto"
+          >
+            <div className="max-w-7xl mx-auto">
+              <div className="flex justify-between items-center mb-20">
+                <div>
+                  <h2 className="text-6xl font-black serif mb-4">Your World</h2>
+                  <p className="text-slate-500 uppercase tracking-[0.5em] text-xs">Tracking your global culinary footprint</p>
+                </div>
+                <button onClick={() => { setActiveTab('Explorer'); }} className="glass p-6 rounded-full hover:bg-white/10 transition-all">
+                  <X size={32} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-20">
+                <div className="glass p-12 rounded-[40px] border-amber-500/20 flex flex-col items-center justify-center text-center">
+                  <Globe className="text-amber-500 mb-8" size={64} />
+                  <h3 className="text-7xl font-black serif mb-4">{Math.round((favorites.length / 5000) * 1000) / 10}%</h3>
+                  <p className="text-slate-500 uppercase tracking-widest text-xs">Global Coverage</p>
+                </div>
+                
+                <div className="lg:col-span-2 glass p-12 rounded-[40px] border-white/5">
+                  <h4 className="text-2xl font-black serif mb-12">Continental Authority</h4>
+                  <div className="space-y-8">
+                    {['Africa', 'Asia', 'Europe', 'Americas', 'Oceania'].map(cont => (
+                      <div key={cont} className="space-y-3">
+                        <div className="flex justify-between text-xs font-black uppercase tracking-widest">
+                          <span>{cont}</span>
+                          <span className="text-amber-500">Mastery Level: 1</span>
+                        </div>
+                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: '20%' }}
+                            className="h-full gradient-primary"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass p-12 rounded-[40px] border-white/5">
+                <h4 className="text-2xl font-black serif mb-8">Culinary Achievements</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                  {[
+                    { icon: <Trophy />, title: 'First Taste', desc: 'Saved your first recipe' },
+                    { icon: <Zap />, title: 'Speed Chef', desc: 'Finished 5 quick meals' },
+                    { icon: <Globe />, title: 'World Traveler', desc: '3 continents explored' },
+                    { icon: <Sparkles />, title: 'Flavor Master', desc: 'Reached 10 favorites' }
+                  ].map((ach, idx) => (
+                    <div key={idx} className="flex flex-col items-center text-center p-6 bg-white/5 rounded-3xl border border-white/10 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-help">
+                      <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mb-4">
+                        {ach.icon}
+                      </div>
+                      <h5 className="font-bold text-sm mb-1">{ach.title}</h5>
+                      <p className="text-[10px] text-slate-500">{ach.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <style dangerouslySetInnerHTML={{ __html: `
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
+        
+        @media print {
+          nav, footer, .aura-bg, .btn-luxury, .fixed, button { display: none !important; }
+          body { background: white !important; color: black !important; cursor: auto !important; }
+          .glass { background: transparent !important; border: none !important; }
+          .container { max-width: 100% !important; padding: 0 !important; }
+          .serif { color: black !important; }
+          img { border-radius: 20px !important; }
+        }
       `}} />
     </div>
   );
