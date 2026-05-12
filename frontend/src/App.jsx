@@ -528,7 +528,6 @@ const App = () => {
               <p className="text-sm font-bold serif">Award Winning Collections 2026</p>
             </div>
           </motion.div>
-        </div>
       </section>
 
       {/* Filters - Luxury Style */}
